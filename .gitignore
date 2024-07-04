@@ -11,3 +11,4 @@ frontend/.DS_Store
 frontend/.idea/
 
 django/.venv
+django/.env
