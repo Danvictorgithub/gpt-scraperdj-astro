@@ -10,4 +10,4 @@ frontend/.env.production
 frontend/.DS_Store
 frontend/.idea/
 
-backend/.venv
+/.venv
