@@ -2,7 +2,7 @@
   "folders": [
     {
       "name": "Backend",
-      "path": "./django"
+      "path": "./backend"
     },
     {
       "path": "."
