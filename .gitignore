@@ -10,5 +10,5 @@ frontend/.env.production
 frontend/.DS_Store
 frontend/.idea/
 
-django/.venv
-django/.env
+backend/.venv
+backend/.env
