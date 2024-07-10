@@ -1,7 +1,7 @@
 
 from django.urls import path,include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView,TokenVerifyView
-from .views import ConfirmEmailView,greetings,generate_conversation
+from .views import ConfirmEmailView,greetings,generate_conversation,generate_conversation_sync
 urlpatterns = [
     path('',greetings),
     path(
@@ -15,5 +15,6 @@ urlpatterns = [
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('users/',include('users.urls')),
     path('conversations/',include('conversations.urls')),
-    path('generate_conversation',generate_conversation)
+    path('generate_conversation',generate_conversation),
+    path('generate_conversation_sync',generate_conversation_sync)
 ]

@@ -84,3 +84,42 @@ async def generate_conversation(request):
         return Response({'message':"Conversation generated successfully."})
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def generate_conversation_sync(request):
+    serializer = ChatRequestSerializer(data=request.data)
+    if serializer.is_valid():
+        server_urls = [serializer.data['server_url']]
+        if 'server_url_2' in serializer.data:
+            server_urls.append(serializer.data['server_url_2'])
+        else:
+            server_urls.append(serializer.data['server_url'])
+        try:
+            noConversation = 0
+            responses = [fetch_url(f"{url}/start", HTTPMethod.POST) for url in server_urls]
+            print("Chat Initialized")
+            chatOne = responses[0]["chatId"]
+            chatTwo = responses[1]["chatId"]
+            initial_responses = [
+                fetch_url(f"{server_urls[0]}/conversation/", HTTPMethod.POST, data={"chatId": chatOne, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}),
+                fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"})
+            ]
+            print("Chat Initial Message Responded", "\n")
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            chat_one_response = initial_responses[0]
+            chat_two_response = fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": "You start the conversation"})
+            for i in range(serializer.data['max_prompt']):
+                chat_one_response = fetch_url(f"{server_urls[0]}/conversation/", HTTPMethod.POST, data={"chatId": chatOne, "prompt": chat_two_response["response"]})
+                print("chatOne: ", chat_one_response["response"], "\n")
+                chat_two_response = fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": chat_one_response["response"]})
+                print("chatTwo: ", chat_two_response["response"], "\n")
+                noConversation += 1
+                print(f"Chat conversation generated : {noConversation}", "\n")
+                Conversation.objects.create(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': "Conversation generated successfully."})
+    else:
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
