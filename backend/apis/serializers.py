@@ -7,5 +7,6 @@ class ChatRequestSerializer(serializers.Serializer):
     initial_message = serializers.CharField(max_length=4096,
                                             required=False,
                                             default=
-                                            "Lets pretend to have a basic conversation like a human, you can also pretend to have emotion, I would like you to limit the length of your response to small paragraphs, I will do the same. I repeat respond with short paragraph")
+                                            "Lets pretend to have a basic conversation like a human with basic vocabulary, you can also pretend to have emotion, I would like you to limit the length of your response to small paragraphs, I will do the same. I repeat respond with short paragraph")
+    topic = serializers.CharField(max_length=200,required=False,default="general")
     

@@ -62,8 +62,8 @@ async def generate_conversation(request):
             chatOne = responses[0]["chatId"]
             chatTwo = responses[1]["chatId"]
             initial_responses = await asyncio.gather(
-                fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":serializer.data['initial_message']}),
-                fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":serializer.data['initial_message']})
+                fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":f"{serializer.data['initial_message']} topid: {serializer.data['topic']}"}),
+                fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":f"{serializer.data['initial_message']} topid: {serializer.data['topic']}"})
                 )
             print("Chat Initial Message Responded","\n")
         except Exception as e:
