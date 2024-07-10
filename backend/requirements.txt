@@ -17,6 +17,7 @@ gunicorn==22.0.0
 idna==3.7
 multidict==6.0.5
 packaging==24.1
+psycopg2==2.9.9
 PyJWT==2.8.0
 python-dotenv==1.0.1
 requests==2.32.3
