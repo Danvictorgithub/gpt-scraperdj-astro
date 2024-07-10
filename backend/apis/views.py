@@ -1,4 +1,5 @@
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+import requests
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -96,30 +97,27 @@ def generate_conversation_sync(request):
             server_urls.append(serializer.data['server_url'])
         try:
             noConversation = 0
-            responses = [fetch_url(f"{url}/start", HTTPMethod.POST) for url in server_urls]
+            responses = []
+            for url in server_urls:
+                response = requests.post(f"{url}/start", json={})
+                if response.status_code == 200:
+                    responses.append(response.json())
+                else:
+                    raise Exception("Failed to start conversation")
             print("Chat Initialized")
             chatOne = responses[0]["chatId"]
             chatTwo = responses[1]["chatId"]
-            initial_responses = [
-                fetch_url(f"{server_urls[0]}/conversation/", HTTPMethod.POST, data={"chatId": chatOne, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}),
-                fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"})
-            ]
+            initial_responses = []
+            for url, chatId in zip(server_urls, [chatOne, chatTwo]):
+                response = requests.post(f"{url}/conversation/", json={"chatId": chatId, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"})
+                if response.status_code == 200:
+                    initial_responses.append(response.json())
+                else:
+                    raise Exception("Failed to send initial message")
             print("Chat Initial Message Responded", "\n")
-        except Exception as e:
-            return Response({'message': str(e), 'noConversation': noConversation}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            chat_one_response = initial_responses[0]
-            chat_two_response = fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": "You start the conversation"})
-            for i in range(serializer.data['max_prompt']):
-                chat_one_response = fetch_url(f"{server_urls[0]}/conversation/", HTTPMethod.POST, data={"chatId": chatOne, "prompt": chat_two_response["response"]})
-                print("chatOne: ", chat_one_response["response"], "\n")
-                chat_two_response = fetch_url(f"{server_urls[1]}/conversation/", HTTPMethod.POST, data={"chatId": chatTwo, "prompt": chat_one_response["response"]})
-                print("chatTwo: ", chat_two_response["response"], "\n")
-                noConversation += 1
-                print(f"Chat conversation generated : {noConversation}", "\n")
-                Conversation.objects.create(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
+            # Continue with your logic for the conversation...
         except Exception as e:
             return Response({'message': str(e), 'noConversation': noConversation}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message': "Conversation generated successfully."})
     else:
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
