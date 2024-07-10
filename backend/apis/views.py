@@ -75,7 +75,7 @@ async def generate_conversation(request):
                 chat_one_response = await fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":chat_two_response["response"]})
                 print("chatOne: ",chat_one_response["response"],"\n")
                 chat_two_response = await fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":chat_one_response["response"]})
-                print("chatOne: ",chat_two_response["response"],"\n")
+                print("chattwo: ",chat_two_response["response"],"\n")
                 noConversation += 1
                 print(f"Chat conversation generated : {noConversation}","\n")
                 await sync_to_async(Conversation.objects.create)(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
