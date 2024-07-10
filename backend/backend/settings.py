@@ -47,14 +47,16 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
+    "adrf",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
     "dj_rest_auth",
     "dj_rest_auth.registration",
-    "users.apps.UsersConfig",
-    "conversations.apps.ConversationsConfig",
-    "apis.apps.ApisConfig",
+    
+    "users",
+    "conversations",
+    "apis",
 ]
 
 MIDDLEWARE = [
