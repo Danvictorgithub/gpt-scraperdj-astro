@@ -11,7 +11,7 @@ from  aiohttp import ClientSession
 import asyncio
 from adrf.decorators import api_view as async_api_view
 from enum import Enum
-
+from asgiref.sync import sync_to_async
 class HTTPMethod(Enum):
     GET = "GET"
     POST = "POST"
@@ -78,7 +78,7 @@ async def generate_conversation(request):
                 print("chatOne: ",chat_two_response["response"],"\n")
                 noConversation += 1
                 print(f"Chat conversation generated : {noConversation}","\n")
-                Conversation.objects.create(start_conversation=chat_one_response["response"],end_conversation=chat_two_response["response"])
+                await sync_to_async(Conversation.objects.create)(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
         except Exception as e:
             return Response({'message':str(e),noConversation:noConversation}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message':"Conversation generated successfully."})
