@@ -24,10 +24,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-l*7!x)e)qs^9a!4e=^!mrcv)6k@pmkqsyvbt+rieo(o7rs4w8)'
+SECRET_KEY = os.getenv("SECRET_KEY",'django-insecure-l*7!x)e)qs^9a!4e=^!mrcv)6k@pmkqsyvbt+rieo(o7rs4w8)')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG","True") == "True"
 
 ALLOWED_HOSTS = ["*"]
 CORS_ALLOWED_ORIGINS = ["http://*", "https://*"]
@@ -41,7 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'django.contrib.sites',   
+    'django.contrib.sites',
 
     "corsheaders",
     "rest_framework",
@@ -98,11 +98,14 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        "NAME": os.getenv("DB_NAME","mydb"),
+        "USER": os.getenv("DB_USER","user"),
+        "PASSWORD": os.getenv("DB_PASSWORD","password"),
+        "HOST": os.getenv("DB_HOST","localhost"),
+        "PORT": os.getenv("DB_PORT","5432"),
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
