@@ -3,7 +3,7 @@ from rest_framework import serializers
 class ChatRequestSerializer(serializers.Serializer):
     server_url = serializers.URLField(max_length=200)
     server_url_2 = serializers.URLField(max_length=200,required=False)
-    max_prompt = serializers.IntegerField(max_value=70,default=70)
+    max_prompt = serializers.IntegerField(max_value=70,default=30)
     initial_message = serializers.CharField(max_length=4096,
                                             required=False,
                                             default=
