@@ -84,7 +84,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'django.template.context_processors.request', 
+                'django.template.context_processors.request',
             ],
         },
     },
@@ -158,6 +158,7 @@ REST_FRAMEWORK = {
 REST_AUTH = {
     'SESSION_LOGIN': False,
     'USE_JWT': True,
+    'JWT_AUTH_HTTPONLY':False
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
