@@ -163,7 +163,7 @@ REST_AUTH = {
     'SESSION_LOGIN': False,
     'USE_JWT': True,
     'JWT_AUTH_HTTPONLY':False,
-    # 'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
+    'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
 }
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
 ACCOUNT_EMAIL_REQUIRED = True
