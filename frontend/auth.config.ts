@@ -23,7 +23,7 @@ export default defineConfig({
             },
             authorize: async (credentials) => {
                 let backendUrl = import.meta.env.BACKEND_URL
-                let { data } = await axios.post(`${backendUrl}/api/auth/login`, credentials, {
+                let { data } = await axios.post(`${backendUrl}/api/auth/login/`, credentials, {
                     validateStatus: (status) => {
                         return status === 200;
                     }
@@ -46,7 +46,7 @@ export default defineConfig({
                 try {
                     // Attempt to refresh the token
                     const backendUrl = import.meta.env.BACKEND_URL;
-                    const response = await axios.post(`${backendUrl}/api/auth/refresh`, {
+                    const response = await axios.post(`${backendUrl}/api/auth/token/refresh`, {
                         refresh: token.refreshToken
                     });
 
