@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+from datetime import timedelta
 import os
 from pathlib import Path
 import dotenv
@@ -164,6 +165,9 @@ REST_AUTH = {
     'USE_JWT': True,
     'JWT_AUTH_HTTPONLY':False,
     'USER_DETAILS_SERIALIZER': 'users.serializers.UserSerializer',
+}
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME":timedelta(hours=16)
 }
 ACCOUNT_AUTHENTICATION_METHOD = 'username_email'
 ACCOUNT_EMAIL_REQUIRED = True
