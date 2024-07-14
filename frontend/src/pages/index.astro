@@ -29,6 +29,7 @@ interface Stats {
 	conversations_rate_per_hour: number;
 	first_ten_conversations: Array<{start_conversation:string,end_conversation:string}>,
 	conversations_rate_per_hour_week:Array<number>
+	conversations_day:Array<number>
 }
 const data = await axios.get<Stats>(`${backendUrl}/api/conversations/stats/`, {
 	headers: {
@@ -37,7 +38,6 @@ const data = await axios.get<Stats>(`${backendUrl}/api/conversations/stats/`, {
 }).then(res => res.data).catch(err => {
 	throw new Error(err)
 })
-console.log(data)
 ---
 
 <Layout title="GPT-Dataset Dashboard">
@@ -69,9 +69,9 @@ console.log(data)
 				</div>
 			</div>
 			<div class="w-full flex flex-col lg:flex-row gap-4 flex-1">
-				<DataChart dataInfo={data.conversations_rate_per_hour_week} client:load/>
-				<div class="h-auto max-h-[calc(100svh-275px)] flex-1 basis-0 border border-gray-500 p-4 rounded-xl overflow-scroll">
-					<table class="min-w-full" style="table-layout: fixed;">
+				<DataChart dataInfo_rate={data.conversations_rate_per_hour_week} dataInfo_total={data.conversations_day} client:load/>
+				<div class="h-[600px] flex-1 basis-0 border border-gray-500 p-4 rounded-xl overflow-scroll">
+					<table class="" style="table-layout: fixed;">
 						<thead class="">
 							<tr class="">
 								<th scope="col" class="py-3.5 text-sm font-bold text-center rtl:text-right text-white" style="width: 50%;">
