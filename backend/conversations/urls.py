@@ -1,6 +1,9 @@
-from .views import ConversationViewSet
+from django.urls import path
+from .views import ConversationViewSet,stats
 from rest_framework.routers import SimpleRouter
 
 router = SimpleRouter()
 router.register('', ConversationViewSet, basename='conversations')
-urlpatterns = router.urls
+urlpatterns = [
+    path('stats/', stats),
+] + router.urls
