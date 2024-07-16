@@ -8,19 +8,12 @@ import DashboardNav from '../components/DashboardNav.astro';
 import { Icon } from 'astro-icon/components';
 import verifyToken from "../lib/verifytoken"
 import axios from 'axios';
-import { signOut } from 'auth-astro/client';
 
 const session = await getSession(Astro.request)
 const backendUrl = import.meta.env.BACKEND_URL
 const initServer = await axios.get(`${backendUrl}/api/`)
-if (!session) {
+if (!session || ! await verifyToken(session.access)) {
 	return Astro.redirect('/auth/signin')
-}
-else {
-	if (! await verifyToken(session.access)) {
-		await signOut()
-		return Astro.redirect('/auth/signin')
-	}
 }
 interface Stats {
 	total_conversations: number;

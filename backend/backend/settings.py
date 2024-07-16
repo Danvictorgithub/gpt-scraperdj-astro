@@ -31,7 +31,7 @@ SECRET_KEY = os.getenv("SECRET_KEY",'django-insecure-l*7!x)e)qs^9a!4e=^!mrcv)6k@
 DEBUG = os.getenv("DEBUG","True") == "True"
 
 ALLOWED_HOSTS = ["*"]
-CORS_ALLOWED_ORIGINS = ["http://*", "https://*"]
+CORS_ALLOW_ALL_ORIGINS: True
 CSRF_TRUSTED_ORIGINS = ["http://*", "https://*"]
 # Application definition
 
@@ -68,6 +68,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+        "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.common.CommonMiddleware",
     'whitenoise.middleware.WhiteNoiseMiddleware',
     "allauth.account.middleware.AccountMiddleware",
 ]
@@ -159,7 +161,7 @@ REST_FRAMEWORK = {
         "dj_rest_auth.jwt_auth.JWTCookieAuthentication"
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
-    'PAGE_SIZE': 100
+    'PAGE_SIZE': 10
 }
 REST_AUTH = {
     'LOGIN_SERIALIZER': 'dj_rest_auth.serializers.LoginSerializer',
