@@ -72,9 +72,9 @@ export default defineConfig({
         },
     },
     pages: {
-        signIn: '/auth/signin',
+        signIn: '/',
         signOut: '/logout',
-        error: '/auth/signin?errorMessage=Invalid Credentials&'
+        error: '/?errorMessage=Invalid Credentials&'
     },
     events: {
     }

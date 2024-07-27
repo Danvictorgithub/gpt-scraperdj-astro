@@ -1,0 +1,94 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import Header from '../../components/Header';
+import {getSession} from "auth-astro/server"
+import DataChart from "../../components/DataChart"
+import DashboardNav from '../../components/DashboardNav.astro';
+// @ts-ignore
+import { Icon } from 'astro-icon/components';
+import verifyToken from "../../lib/verifytoken"
+import axios from 'axios';
+
+const session = await getSession(Astro.request)
+const backendUrl = import.meta.env.BACKEND_URL
+const initServer = await axios.get(`${backendUrl}/api/`)
+if (!session || ! await verifyToken(session.access)) {
+	return Astro.redirect('/')
+}
+interface Stats {
+	total_conversations: number;
+	conversations_today: number;
+	conversations_rate_per_hour: number;
+	first_ten_conversations: Array<{start_conversation:string,end_conversation:string}>,
+	conversations_rate_per_hour_week:Array<number>
+	conversations_day:Array<number>
+}
+const data = await axios.get<Stats>(`${backendUrl}/api/conversations/stats/`, {
+	headers: {
+		Authorization: `Bearer ${session.access}`
+	}
+}).then(res => res.data).catch(err => {
+	throw new Error(err)
+})
+---
+
+<Layout title="GPT-Dataset Dashboard">
+	<main class="min-h-svh bg-black text-white flex flex-col">
+		<Header client:load/>
+		<section class="container mx-auto p-4 flex-1 flex flex-col">
+			<DashboardNav/>
+			<div class="flex justify-between flex-wrap gap-4 py-4 ">
+				<div class="rounded-xl border p-4  border-gray-500 flex-1">
+					<div class="flex justify-between">
+						<h2 class="font-medium text-sm">Total Conversations</h2>
+						<Icon name="solar:graph-up-bold" class="text-3xl" />
+					</div>
+					<p class="text-2xl font-bold">{data.total_conversations}</p>
+				</div>
+				<div class="rounded-xl border p-4  border-gray-500 flex-1">
+					<div class="flex justify-between">
+						<h2 class="font-medium text-sm">Conversations Today</h2>
+						<Icon name="material-symbols:today" class="text-3xl" />
+					</div>
+					<p class="text-2xl font-bold">{data.conversations_today}</p>
+				</div>
+				<div class="rounded-xl border p-4  border-gray-500 flex-1">
+					<div class="flex justify-between">
+						<h2 class="font-medium text-sm">Conversations Rate per Hour</h2>
+						<Icon name="tabler:clock-hour-1" class="text-3xl" />
+					</div>
+					<p class="text-2xl font-bold">{data.conversations_rate_per_hour.toFixed(0)}</p>
+				</div>
+			</div>
+			<div class="w-full flex flex-col lg:flex-row gap-4 flex-1">
+				<DataChart dataInfo_rate={data.conversations_rate_per_hour_week} dataInfo_total={data.conversations_day} client:load/>
+				<div class="h-[600px] flex-1 basis-0 border border-gray-500 p-4 rounded-xl overflow-scroll">
+					<table class="" style="table-layout: fixed;">
+						<thead class="">
+							<tr class="">
+								<th scope="col" class="py-3.5 text-sm font-bold text-center rtl:text-right text-white" style="width: 50%;">
+									Start Conversation
+								</th>
+								<th scope="col" class="py-3.5 text-sm font-bold text-center rtl:text-right text-white" style="width: 50%;">
+									End Conversation
+								</th>
+							</tr>
+						</thead>
+						<tbody class="">
+							{(data.first_ten_conversations || []).map((conversation) => (
+								<tr class="border-b ">
+									<td class="text-wrap px-4 py-4 text-sm font-medium whitespace-nowrap text-gray-300">
+										{conversation.start_conversation}
+									</td>
+									<td class="text-wrap p-4 py-4 text-sm font-medium whitespace-nowrap text-gray-300">
+										{conversation.end_conversation}
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+	</main>
+</Layout>

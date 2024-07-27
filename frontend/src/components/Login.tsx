@@ -31,7 +31,7 @@ export default function Login(props: Props) {
         await signIn("credentials", {
           username: formData.emailOrUsername,
           password: formData.password,
-          callbackUrl: "/",
+          callbackUrl: "/dashboard",
           redirect: true,
         });
       } catch (e) {

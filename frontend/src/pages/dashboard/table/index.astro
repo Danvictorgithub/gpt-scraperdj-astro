@@ -1,10 +1,10 @@
 ---
 import { getSession } from "auth-astro/server";
-import DashboardNav from "../../components/DashboardNav.astro";
-import Header from "../../components/Header";
-import Layout from "../../layouts/Layout.astro";
+import DashboardNav from "../../../components/DashboardNav.astro";
+import Header from "../../../components/Header";
+import Layout from "../../../layouts/Layout.astro";
 import axios from "axios";
-import verifyToken from "../../lib/verifytoken";
+import verifyToken from "../../../lib/verifytoken";
 import { signOut } from "auth-astro/client";
 interface Data {
     count:number,
@@ -18,21 +18,21 @@ interface Data {
 const session = await getSession(Astro.request)
 const backendUrl = import.meta.env.BACKEND_URL
 if (!session) {
-	return Astro.redirect('/auth/signin')
+	return Astro.redirect('/')
 }
 else {
 	if (! await verifyToken(session.access)) {
 		await signOut()
-		return Astro.redirect('/auth/signin')
+		return Astro.redirect('/')
 	}
 }
-// const data = await axios.get<Data>(`${backendUrl}/api/conversations/`, {
-// 	headers: {
-// 		Authorization: `Bearer ${session.access}`
-// 	}
-// }).then(res => res.data).catch(err => {
-// 	throw new Error(err)
-// })
+const data = await axios.get<Data>(`${backendUrl}/api/conversations/`, {
+	headers: {
+		Authorization: `Bearer ${session.access}`
+	}
+}).then(res => res.data).catch(err => {
+	throw new Error(err)
+})
 ---
 <Layout title="GPT-Dataset Dashboard">
 	<main class="min-h-svh bg-black text-white">
@@ -52,7 +52,7 @@ else {
                         </tr>
                     </thead>
                     <tbody class="">
-                        <!-- {(data.results || []).map((conversation) => (
+                        {(data.results || []).map((conversation) => (
                             <tr class="border-b ">
                                 <td class="text-wrap px-4 py-4 text-sm font-medium whitespace-nowrap text-gray-300">
                                     {conversation.start_conversation}
@@ -61,7 +61,7 @@ else {
                                     {conversation.end_conversation}
                                 </td>
                             </tr>
-                        ))} -->
+                        ))}
                     </tbody>
                 </table>
             </div>
