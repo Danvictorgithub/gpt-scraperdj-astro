@@ -1,3 +1,4 @@
+import os
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import requests
 from rest_framework.views import APIView
@@ -7,12 +8,13 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from conversations.models import Conversation
-from .serializers import ChatRequestSerializer
+from .serializers import ChatRequestGeminiSeralizer, ChatRequestSerializer
 from  aiohttp import ClientSession
 import asyncio
 from adrf.decorators import api_view as async_api_view
 from enum import Enum
 from asgiref.sync import sync_to_async
+from .utils import generate_text
 class HTTPMethod(Enum):
     GET = "GET"
     POST = "POST"
@@ -124,3 +126,34 @@ def generate_conversation_sync(request):
         return Response({'message': "Conversation generated successfully."})
     else:
         return Response(serializer.errors, status=400)
+    
+@api_view(['POST'])
+def generate_conversation_gemini(request):
+    serializer = ChatRequestGeminiSeralizer(data=request.data)
+    if serializer.is_valid():
+        try:
+            noConversation = 0
+            initial_message = f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"
+            chat_one_response = generate_text(initial_message)
+            chat_two_response = generate_text(initial_message)
+            print("Chat Initial Message Responded", "\n")
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=400)
+        try:
+            for i in range(serializer.data['max_prompt']):
+                chat_one_response = generate_text(chat_two_response)
+                print("chatOne: ", chat_one_response, "\n")
+                chat_two_response = generate_text(chat_one_response)
+                print("chatTwo: ", chat_two_response, "\n")
+                noConversation += 1
+                print(f"Chat conversation generated: {noConversation}", "\n")
+                Conversation.objects.create(start_conversation=chat_one_response, end_conversation=chat_two_response)
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=400)
+        return Response({'message': "Conversation generated successfully."})
+    else:
+        return Response(serializer.errors, status=400)
+# @api_view(['GET'])
+# def gemini_api(request):
+#     API_KEY = os.getenv("API_KEY")
+#     return Response((f"APIKEY: {API_KEY}"))

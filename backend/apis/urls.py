@@ -1,7 +1,7 @@
 
 from django.urls import path,include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView,TokenVerifyView
-from .views import ConfirmEmailView,greetings,generate_conversation,generate_conversation_sync
+from .views import ConfirmEmailView, generate_conversation_gemini,greetings,generate_conversation,generate_conversation_sync
 from dj_rest_auth.registration.views import VerifyEmailView
 urlpatterns = [
     path('',greetings),
@@ -19,5 +19,6 @@ urlpatterns = [
     path('users/',include('users.urls')),
     path('conversations/',include('conversations.urls')),
     path('generate_conversation',generate_conversation),
-    path('generate_conversation_sync',generate_conversation_sync)
+    path('generate_conversation_sync',generate_conversation_sync),
+    path('generate_conversation_gemini',generate_conversation_gemini)
 ]
