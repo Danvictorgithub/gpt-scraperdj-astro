@@ -14,7 +14,7 @@ import asyncio
 from adrf.decorators import api_view as async_api_view
 from enum import Enum
 from asgiref.sync import sync_to_async
-from .utils import generate_text
+from .utils import generate_text, generate_random_subject
 class HTTPMethod(Enum):
     GET = "GET"
     POST = "POST"
@@ -134,6 +134,33 @@ def generate_conversation_gemini(request):
         try:
             noConversation = 0
             initial_message = f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"
+            chat_one_response = generate_text(initial_message)
+            chat_two_response = generate_text(initial_message)
+            print("Chat Initial Message Responded", "\n")
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=400)
+        try:
+            for i in range(serializer.data['max_prompt']):
+                chat_one_response = generate_text(chat_two_response)
+                print("chatOne: ", chat_one_response, "\n")
+                chat_two_response = generate_text(chat_one_response)
+                print("chatTwo: ", chat_two_response, "\n")
+                noConversation += 1
+                print(f"Chat conversation generated: {noConversation}", "\n")
+                Conversation.objects.create(start_conversation=chat_one_response, end_conversation=chat_two_response)
+        except Exception as e:
+            return Response({'message': str(e), 'noConversation': noConversation}, status=400)
+        return Response({'message': "Conversation generated successfully."})
+    else:
+        return Response(serializer.errors, status=400)
+    
+@api_view(['POST'])
+def generate_conversation_gemini_random(request):
+    serializer = ChatRequestGeminiSeralizer(data=request.data)
+    if serializer.is_valid():
+        try:
+            noConversation = 0
+            initial_message = f"{serializer.data['initial_message']} topic: {generate_random_subject()}"
             chat_one_response = generate_text(initial_message)
             chat_two_response = generate_text(initial_message)
             print("Chat Initial Message Responded", "\n")
