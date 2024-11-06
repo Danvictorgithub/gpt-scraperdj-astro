@@ -1,4 +1,5 @@
 import os
+from time import sleep
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import requests
 from rest_framework.views import APIView
@@ -77,10 +78,12 @@ async def generate_conversation(request):
             for i in range(serializer.data['max_prompt']):
                 chat_one_response = await fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":chat_two_response["response"]})
                 print("chatOne: ",chat_one_response["response"],"\n")
+                sleep(5)
                 chat_two_response = await fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":chat_one_response["response"]})
                 print("chattwo: ",chat_two_response["response"],"\n")
                 noConversation += 1
                 print(f"Chat conversation generated : {noConversation}","\n")
+                sleep(5)
                 await sync_to_async(Conversation.objects.create)(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
         except Exception as e:
             return Response({'message':str(e),noConversation:noConversation}, status=status.HTTP_400_BAD_REQUEST)
