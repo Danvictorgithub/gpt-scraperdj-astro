@@ -8,7 +8,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 from conversations.models import Conversation
-from .serializers import ChatRequestGeminiSeralizer, ChatRequestSerializer
+from .serializers import ChatRequestGeminiRandomSeralizer, ChatRequestGeminiSeralizer, ChatRequestSerializer
 from  aiohttp import ClientSession
 import asyncio
 from adrf.decorators import api_view as async_api_view
@@ -156,21 +156,23 @@ def generate_conversation_gemini(request):
     
 @api_view(['POST'])
 def generate_conversation_gemini_random(request):
-    serializer = ChatRequestGeminiSeralizer(data=request.data)
+    serializer = ChatRequestGeminiRandomSeralizer(data=request.data)
     if serializer.is_valid():
         try:
+            topic = generate_random_subject()
+            added_text = "Please respond in less than 400 characters if possible"
             noConversation = 0
-            initial_message = f"{serializer.data['initial_message']} topic: {generate_random_subject()}"
-            chat_one_response = generate_text(initial_message)
-            chat_two_response = generate_text(initial_message)
+            initial_message = f"{serializer.data['initial_message']} {added_text} topic: {topic}"
+            chat_one_response = generate_text(f"{initial_message}")
+            chat_two_response = generate_text(f"{initial_message}")
             print("Chat Initial Message Responded", "\n")
         except Exception as e:
             return Response({'message': str(e), 'noConversation': noConversation}, status=400)
         try:
             for i in range(serializer.data['max_prompt']):
-                chat_one_response = generate_text(chat_two_response)
+                chat_one_response = generate_text(f"{chat_two_response} {added_text}  topic: {topic}")
                 print("chatOne: ", chat_one_response, "\n")
-                chat_two_response = generate_text(chat_one_response)
+                chat_two_response = generate_text(f"{chat_one_response} {added_text}  topic: {topic}")
                 print("chatTwo: ", chat_two_response, "\n")
                 noConversation += 1
                 print(f"Chat conversation generated: {noConversation}", "\n")
