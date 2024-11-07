@@ -65,25 +65,42 @@ async def generate_conversation(request):
             print("Chat Initalized")
             chatOne = responses[0]["chatId"]
             chatTwo = responses[1]["chatId"]
-            initial_responses = await asyncio.gather(
-                fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}),
-                fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"})
-                )
-            print("Chat Initial Message Responded","\n")
+            # initial_responses = await asyncio.gather(
+            #     fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}),
+            #     fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"})
+            #     )
+            # print("Chat Initial Message Responded","\n")
+            initial_response_one = await fetch_url(
+                f"{server_urls[0]}/conversation/",
+                HTTPMethod.POST,
+                data={"chatId": chatOne, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}
+            )
+            print("First chat initial message responded")
+
+            initial_response_two = await fetch_url(
+                f"{server_urls[1]}/conversation/",
+                HTTPMethod.POST,
+                data={"chatId": chatTwo, "prompt": f"{serializer.data['initial_message']} topic: {serializer.data['topic']}"}
+            )
+            print("Second chat initial message responded")
+
+            print("Chat Initial Messages Responded\n")
+            print(f"initial_response_one: {initial_response_one}")
+            print(f"initial_response_two: {initial_response_two}")
         except Exception as e:
             return Response({'message':str(e),noConversation:noConversation}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            chat_one_response = initial_responses[0]
+            chat_one_response = initial_response_one
             chat_two_response = await fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":"You start the conversation"})
             for i in range(serializer.data['max_prompt']):
                 chat_one_response = await fetch_url(f"{server_urls[0]}/conversation/",HTTPMethod.POST,data={"chatId":chatOne,"prompt":chat_two_response["response"]})
                 print("chatOne: ",chat_one_response["response"],"\n")
-                sleep(5)
+                sleep(10)
                 chat_two_response = await fetch_url(f"{server_urls[1]}/conversation/",HTTPMethod.POST,data={"chatId":chatTwo,"prompt":chat_one_response["response"]})
                 print("chattwo: ",chat_two_response["response"],"\n")
                 noConversation += 1
                 print(f"Chat conversation generated : {noConversation}","\n")
-                sleep(5)
+                sleep(10)
                 await sync_to_async(Conversation.objects.create)(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
         except Exception as e:
             return Response({'message':str(e),noConversation:noConversation}, status=status.HTTP_400_BAD_REQUEST)
