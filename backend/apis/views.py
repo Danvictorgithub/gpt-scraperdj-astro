@@ -1,5 +1,6 @@
 import os
 from time import sleep
+import time
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import requests
 from rest_framework.views import APIView
@@ -16,6 +17,60 @@ from adrf.decorators import api_view as async_api_view
 from enum import Enum
 from asgiref.sync import sync_to_async
 from .utils import generate_text, generate_random_subject
+import queue
+from threading import Thread
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Initialize the queue
+conversation_queue = queue.Queue()
+# Define a worker function to process the queue with retry logic, this is important since my db has super role limits
+def process_queue(max_retries=25, retry_delay=5):
+    while True:
+        try:
+            # Get the task from the queue
+            start_response, end_response = conversation_queue.get()
+            attempt = 0
+            success = False
+
+            # Retry logic
+            while attempt < max_retries and not success:
+                try:
+                    # Try to create the Conversation object
+                    conversation = Conversation.objects.create(
+                        start_conversation=start_response,
+                        end_conversation=end_response
+                    )
+                    # Log the success and set the flag
+                    logger.info(f"Successfully created Conversation with ID: {conversation.id}")
+                    logger.info(f"Start_Conversation:{conversation.start_conversation}")
+                    logger.info(f"End_Conversation:{conversation.end_conversation}")
+                    success = True
+                except Exception as e:
+                    # Log the error and retry
+                    attempt += 1
+                    logger.error(f"Attempt {attempt} failed: {e}")
+                    if attempt < max_retries:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error("Max retries reached, giving up.")
+
+        finally:
+            # Mark the task as done, even if it failed after max retries
+            conversation_queue.task_done()
+
+# Start the worker thread (daemon thread will exit when main program exits)
+worker_thread = Thread(target=process_queue, daemon=True)
+worker_thread.start()
+
+# Helper function to enqueue the conversation creation task
+def enqueue_conversation(start_response, end_response):
+    conversation_queue.put((start_response, end_response))
+
 class HTTPMethod(Enum):
     GET = "GET"
     POST = "POST"
@@ -33,6 +88,8 @@ class ConfirmEmailView(APIView):
         
         confirmation.confirm(request)
         return Response({'detail': 'Email confirmed'}, status=status.HTTP_200_OK)
+
+
 
 @api_view(['GET'])
 def greetings(request):
@@ -100,8 +157,8 @@ async def generate_conversation(request):
                 print("chattwo: ",chat_two_response["response"],"\n")
                 noConversation += 1
                 print(f"Chat conversation generated : {noConversation}","\n")
-                sleep(10)
-                await sync_to_async(Conversation.objects.create)(start_conversation=chat_one_response["response"], end_conversation=chat_two_response["response"])
+                sleep(10) 
+                enqueue_conversation(chat_one_response["response"], chat_two_response["response"])
         except Exception as e:
             return Response({'message':str(e),noConversation:noConversation}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message':"Conversation generated successfully."})
