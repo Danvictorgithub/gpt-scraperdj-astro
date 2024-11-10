@@ -68,6 +68,8 @@ worker_thread.start()
 # Helper function to enqueue the conversation creation task
 def enqueue_conversation(start_response, end_response):
     conversation_queue.put((start_response, end_response))
+    logger.info(f"Enqueued conversation: start_response={start_response}, end_response={end_response}")
+    logger.info(f"Queue size after enqueuing: {conversation_queue.qsize()}")
 
 class HTTPMethod(Enum):
     GET = "GET"
