@@ -28,40 +28,42 @@ logger = logging.getLogger(__name__)
 # Initialize the queue
 conversation_queue = queue.Queue()
 # Define a worker function to process the queue with retry logic, this is important since my db has super role limits
-def process_queue(max_retries=25, retry_delay=5):
+def process_queue():
     while True:
-        try:
-            # Get the task from the queue
-            start_response, end_response = conversation_queue.get()
-            attempt = 0
-            success = False
+        start_response, end_response = conversation_queue.get()
+        attempt = 0
+        max_retries = 25
+        retry_delay = 5  # seconds
 
-            # Retry logic
-            while attempt < max_retries and not success:
-                try:
-                    # Try to create the Conversation object
-                    conversation = Conversation.objects.create(
-                        start_conversation=start_response,
-                        end_conversation=end_response
-                    )
-                    # Log the success and set the flag
-                    logger.info(f"Successfully created Conversation with ID: {conversation.id}")
-                    logger.info(f"Start_Conversation:{conversation.start_conversation}")
-                    logger.info(f"End_Conversation:{conversation.end_conversation}")
-                    success = True
-                except Exception as e:
-                    # Log the error and retry
-                    attempt += 1
-                    logger.error(f"Attempt {attempt} failed: {e}")
-                    if attempt < max_retries:
-                        logger.info(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                    else:
-                        logger.error("Max retries reached, giving up.")
+        while attempt < max_retries:
+            try:
+                attempt += 1
+                logger.info(f"Processing conversation: start_response={start_response}, end_response={end_response}")
+                # Try to create the Conversation object
+                conversation = Conversation.objects.create(
+                    start_conversation=start_response,
+                    end_conversation=end_response
+                )
+                # Log the success and set the flag
+                logger.info(f"Successfully created Conversation with ID: {conversation.id}")
+                logger.info(f"Start_Conversation:{conversation.start_conversation}")
+                logger.info(f"End_Conversation:{conversation.end_conversation}")
+                break
+            except Exception as e:
+                logger.error(f"Attempt {attempt} failed: {e}")
+                if attempt < max_retries:
+                    logger.info(f"Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                else:
+                    logger.error("Max retries reached, giving up.")
+            finally:
+                # Mark the task as done, even if it failed after max retries
+                conversation_queue.task_done()
+                logger.info(f"Queue size after processing: {conversation_queue.qsize()}")
 
-        finally:
-            # Mark the task as done, even if it failed after max retries
-            conversation_queue.task_done()
+    # Start the worker thread (daemon thread will exit when main program exits)
+worker_thread = Thread(target=process_queue, daemon=True)
+worker_thread.start()
 
 # Start the worker thread (daemon thread will exit when main program exits)
 worker_thread = Thread(target=process_queue, daemon=True)
