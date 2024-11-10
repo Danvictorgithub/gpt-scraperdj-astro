@@ -65,10 +65,6 @@ def process_queue():
 worker_thread = Thread(target=process_queue, daemon=True)
 worker_thread.start()
 
-# Start the worker thread (daemon thread will exit when main program exits)
-worker_thread = Thread(target=process_queue, daemon=True)
-worker_thread.start()
-
 # Helper function to enqueue the conversation creation task
 def enqueue_conversation(start_response, end_response):
     conversation_queue.put((start_response, end_response))
