@@ -196,8 +196,9 @@ def process_queue():
                     else:
                         logger.error("Max retries reached, keeping in file queue")
                 finally:
-                    persistent_queue.memory_queue.task_done()
-                    logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
+                    if attempt >= max_retries or conversation:
+                        persistent_queue.memory_queue.task_done()
+                        logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
             
             # Rate limiting - wait 1 second between items
             sleep(1)
