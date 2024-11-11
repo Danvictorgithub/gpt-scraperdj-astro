@@ -1,5 +1,4 @@
 import os
-from time import sleep
 import time
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import requests
@@ -11,7 +10,7 @@ from django.shortcuts import get_object_or_404
 from django.http import Http404
 from conversations.models import Conversation
 from .serializers import ChatRequestGeminiRandomSeralizer, ChatRequestGeminiSeralizer, ChatRequestSerializer
-from  aiohttp import ClientSession
+from aiohttp import ClientSession
 import asyncio
 from adrf.decorators import api_view as async_api_view
 from enum import Enum
@@ -21,14 +20,38 @@ from queue import Queue
 from threading import Thread, Lock
 import logging
 from pathlib import Path
-import fcntl
 import json
+import platform
+
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 QUEUE_FILE = "conversation_queue.json"
 file_lock = Lock()
+
+class FileLock:
+    def __init__(self, file):
+        self.file = file
+        self.platform = platform.system()
+
+    def __enter__(self):
+        if self.platform == 'Windows':
+            import msvcrt
+            self.handle = self.file.fileno()
+            msvcrt.locking(self.handle, msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(self.file.fileno(), fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.platform == 'Windows':
+            import msvcrt
+            msvcrt.locking(self.handle, msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(self.file.fileno(), fcntl.LOCK_UN)
 
 class PersistentQueue:
     def __init__(self):
@@ -39,40 +62,50 @@ class PersistentQueue:
 
     def ensure_queue_file(self):
         if not self.queue_file.exists():
+            logger.info(f"Creating new queue file: {QUEUE_FILE}")
             self.queue_file.write_text("[]")
+        else:
+            logger.info(f"Using existing queue file: {QUEUE_FILE}")
+            try:
+                with open(self.queue_file, 'r') as f:
+                    json.load(f)
+            except json.JSONDecodeError:
+                logger.error(f"Corrupted queue file detected. Creating backup and new file.")
+                backup_file = Path(f"{QUEUE_FILE}.bak")
+                self.queue_file.rename(backup_file)
+                self.queue_file.write_text("[]")
 
     def save_to_file(self, item):
         with file_lock:
             try:
                 with open(self.queue_file, 'r+') as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                    try:
-                        items = json.load(f)
-                    except json.JSONDecodeError:
-                        items = []
-                    
-                    # Keep only unprocessed items
-                    items = [item for item in items if not item.get('processed', False)]
-                    
-                    # Add new item
-                    items.append({
-                        'start_response': item[0],
-                        'end_response': item[1],
-                        'timestamp': time.time(),
-                        'processed': False
-                    })
-                    
-                    # Write back with pretty formatting
-                    f.seek(0)
-                    json.dump(
-                        items, 
-                        f,
-                        indent=2,
-                        ensure_ascii=False,
-                        separators=(',', ': ')
-                    )
-                    f.truncate()
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    with FileLock(f):
+                        try:
+                            items = json.load(f)
+                        except json.JSONDecodeError:
+                            items = []
+                        
+                        # Keep only unprocessed items
+                        items = [item for item in items if not item.get('processed', False)]
+                        
+                        # Add new item
+                        items.append({
+                            'start_response': item[0],
+                            'end_response': item[1],
+                            'timestamp': time.time(),
+                            'processed': False
+                        })
+                        
+                        # Write back with pretty formatting
+                        f.seek(0)
+                        json.dump(
+                            items, 
+                            f,
+                            indent=2,
+                            ensure_ascii=False,
+                            separators=(',', ': ')
+                        )
+                        f.truncate()
             except Exception as e:
                 logger.error(f"Error saving to queue file: {e}")
 
@@ -80,17 +113,18 @@ class PersistentQueue:
         with file_lock:
             try:
                 with open(self.queue_file, 'r') as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                    items = json.load(f)
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
-                    
-                    for item in items:
-                        if not item.get('processed'):
+                    with FileLock(f):
+                        items = json.load(f)
+                        
+                        unprocessed = [item for item in items if not item.get('processed', False)]
+                        logger.info(f"Loading {len(unprocessed)} unprocessed items from queue file")
+                        
+                        for item in unprocessed:
                             self.memory_queue.put((
                                 item['start_response'],
                                 item['end_response']
                             ))
-                            logger.info(f"Loaded pending conversation from file")
+                            
             except Exception as e:
                 logger.error(f"Error loading from queue file: {e}")
 
@@ -98,20 +132,25 @@ class PersistentQueue:
         with file_lock:
             try:
                 with open(self.queue_file, 'r+') as f:
-                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-                    items = json.load(f)
-                    
-                    # Keep only unprocessed items and items that don't match
-                    items = [item for item in items if not (
-                        item['start_response'] == start_response and 
-                        item['end_response'] == end_response
-                    )]
-                    
-                    # Write back the filtered items
-                    f.seek(0)
-                    json.dump(items, f)
-                    f.truncate()
-                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    with FileLock(f):
+                        items = json.load(f)
+                        
+                        # Keep only unprocessed items and items that don't match
+                        items = [item for item in items if not (
+                            item['start_response'] == start_response and 
+                            item['end_response'] == end_response
+                        )]
+                        
+                        # Write back the filtered items
+                        f.seek(0)
+                        json.dump(
+                            items,
+                            f,
+                            indent=2,
+                            ensure_ascii=False,
+                            separators=(',', ': ')
+                        )
+                        f.truncate()
             except Exception as e:
                 logger.error(f"Error removing processed item: {e}")
 
