@@ -17,59 +17,164 @@ from adrf.decorators import api_view as async_api_view
 from enum import Enum
 from asgiref.sync import sync_to_async
 from .utils import generate_text, generate_random_subject
-import queue
-from threading import Thread
+from queue import Queue
+from threading import Thread, Lock
 import logging
-
+from pathlib import Path
+import fcntl
+import json
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the queue
-conversation_queue = queue.Queue()
-# Define a worker function to process the queue with retry logic, this is important since my db has super role limits
+QUEUE_FILE = "conversation_queue.json"
+file_lock = Lock()
+
+class PersistentQueue:
+    def __init__(self):
+        self.memory_queue = Queue()
+        self.queue_file = Path(QUEUE_FILE)
+        self.ensure_queue_file()
+        self.load_pending_items()
+
+    def ensure_queue_file(self):
+        if not self.queue_file.exists():
+            self.queue_file.write_text("[]")
+
+    def save_to_file(self, item):
+        with file_lock:
+            try:
+                with open(self.queue_file, 'r+') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    try:
+                        items = json.load(f)
+                    except json.JSONDecodeError:
+                        items = []
+                    
+                    # Keep only unprocessed items
+                    items = [item for item in items if not item.get('processed', False)]
+                    
+                    # Add new item
+                    items.append({
+                        'start_response': item[0],
+                        'end_response': item[1],
+                        'timestamp': time.time(),
+                        'processed': False
+                    })
+                    
+                    # Write back with pretty formatting
+                    f.seek(0)
+                    json.dump(
+                        items, 
+                        f,
+                        indent=2,
+                        ensure_ascii=False,
+                        separators=(',', ': ')
+                    )
+                    f.truncate()
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception as e:
+                logger.error(f"Error saving to queue file: {e}")
+
+    def load_pending_items(self):
+        with file_lock:
+            try:
+                with open(self.queue_file, 'r') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    items = json.load(f)
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                    
+                    for item in items:
+                        if not item.get('processed'):
+                            self.memory_queue.put((
+                                item['start_response'],
+                                item['end_response']
+                            ))
+                            logger.info(f"Loaded pending conversation from file")
+            except Exception as e:
+                logger.error(f"Error loading from queue file: {e}")
+
+    def mark_processed(self, start_response, end_response):
+        with file_lock:
+            try:
+                with open(self.queue_file, 'r+') as f:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+                    items = json.load(f)
+                    
+                    # Keep only unprocessed items and items that don't match
+                    items = [item for item in items if not (
+                        item['start_response'] == start_response and 
+                        item['end_response'] == end_response
+                    )]
+                    
+                    # Write back the filtered items
+                    f.seek(0)
+                    json.dump(items, f)
+                    f.truncate()
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+            except Exception as e:
+                logger.error(f"Error removing processed item: {e}")
+
+persistent_queue = PersistentQueue()
+
 def process_queue():
     while True:
-        start_response, end_response = conversation_queue.get()
-        attempt = 0
-        max_retries = 3
-        retry_delay = 5  # seconds
+        queue_size = persistent_queue.memory_queue.qsize()
+        logger.info(f"Current queue size: {queue_size}")
+        
+        if queue_size > 0:
+            start_response, end_response = persistent_queue.memory_queue.get()
+            attempt = 0
+            max_retries = 3
+            retry_delay = 5
+            
+            process_start_time = time.time()
+            
+            while attempt < max_retries:
+                try:
+                    attempt += 1
+                    logger.info(f"Processing conversation: start_response={start_response}, end_response={end_response}")
+                    
+                    conversation = Conversation.objects.create(
+                        start_conversation=start_response,
+                        end_conversation=end_response
+                    )
+                    
+                    persistent_queue.mark_processed(start_response, end_response)
+                    process_end_time = time.time()
+                    process_duration = process_end_time - process_start_time
+                    
+                    logger.info(f"Successfully created Conversation with ID: {conversation.id}")
+                    logger.info(f"Processing time: {process_duration:.2f} seconds")
+                    break
+                    
+                except Exception as e:
+                    logger.error(f"Attempt {attempt} failed: {e}")
+                    if attempt < max_retries:
+                        logger.info(f"Retrying in {retry_delay} seconds...")
+                        time.sleep(retry_delay)
+                    else:
+                        logger.error("Max retries reached, keeping in file queue")
+                finally:
+                    persistent_queue.memory_queue.task_done()
+                    logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
+            
+            # Rate limiting - wait 1 second between items
+            time.sleep(1)
+        else:
+            # If queue is empty, wait before checking again
+            time.sleep(5)
 
-        while attempt < max_retries:
-            try:
-                attempt += 1
-                logger.info(f"Processing conversation: start_response={start_response}, end_response={end_response}")
-                # Try to create the Conversation object
-                conversation = Conversation.objects.create(
-                    start_conversation=start_response,
-                    end_conversation=end_response
-                )
-                # Log the success and set the flag
-                logger.info(f"Successfully created Conversation with ID: {conversation.id}")
-                logger.info(f"Start_Conversation:{conversation.start_conversation}")
-                logger.info(f"End_Conversation:{conversation.end_conversation}")
-                break
-            except Exception as e:
-                logger.error(f"Attempt {attempt} failed: {e}")
-                if attempt < max_retries:
-                    logger.info(f"Retrying in {retry_delay} seconds...")
-                    time.sleep(retry_delay)
-                else:
-                    logger.error("Max retries reached, giving up.")
-            finally:
-                # Mark the task as done, even if it failed after max retries
-                conversation_queue.task_done()
-                logger.info(f"Queue size after processing: {conversation_queue.qsize()}")
+def enqueue_conversation(start_response, end_response):
+    item = (start_response, end_response)
+    persistent_queue.save_to_file(item)
+    persistent_queue.memory_queue.put(item)
+    logger.info(f"Enqueued conversation to persistent queue")
+    logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
 
-    # Start the worker thread (daemon thread will exit when main program exits)
+# Start the worker thread
 worker_thread = Thread(target=process_queue, daemon=True)
 worker_thread.start()
-
-# Helper function to enqueue the conversation creation task
-def enqueue_conversation(start_response, end_response):
-    conversation_queue.put((start_response, end_response))
-    logger.info(f"Enqueued conversation: start_response={start_response}, end_response={end_response}")
-    logger.info(f"Queue size after enqueuing: {conversation_queue.qsize()}")
 
 class HTTPMethod(Enum):
     GET = "GET"
