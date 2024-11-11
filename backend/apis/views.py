@@ -32,7 +32,7 @@ def process_queue():
     while True:
         start_response, end_response = conversation_queue.get()
         attempt = 0
-        max_retries = 25
+        max_retries = 3
         retry_delay = 5  # seconds
 
         while attempt < max_retries:
