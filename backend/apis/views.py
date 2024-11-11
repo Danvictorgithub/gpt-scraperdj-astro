@@ -1,5 +1,6 @@
 import os
 import time
+from time import sleep
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import requests
 from rest_framework.views import APIView
@@ -191,7 +192,7 @@ def process_queue():
                     logger.error(f"Attempt {attempt} failed: {e}")
                     if attempt < max_retries:
                         logger.info(f"Retrying in {retry_delay} seconds...")
-                        time.sleep(retry_delay)
+                        sleep(retry_delay)
                     else:
                         logger.error("Max retries reached, keeping in file queue")
                 finally:
@@ -199,10 +200,10 @@ def process_queue():
                     logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
             
             # Rate limiting - wait 1 second between items
-            time.sleep(1)
+            sleep(1)
         else:
             # If queue is empty, wait before checking again
-            time.sleep(5)
+            sleep(5)
 
 def enqueue_conversation(start_response, end_response):
     item = (start_response, end_response)
