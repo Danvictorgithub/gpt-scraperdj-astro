@@ -23,6 +23,8 @@ import logging
 from pathlib import Path
 import json
 import platform
+from django.db import connections
+from django.db.utils import OperationalError
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +32,8 @@ logger = logging.getLogger(__name__)
 
 QUEUE_FILE = "conversation_queue.json"
 file_lock = Lock()
+
+DB_CONNECTED = False
 
 class FileLock:
     def __init__(self, file):
@@ -157,8 +161,23 @@ class PersistentQueue:
 
 persistent_queue = PersistentQueue()
 
+def check_db_connection():
+    db_conn = connections['default']
+    try:
+        db_conn.cursor()
+    except OperationalError:
+        DB_CONNECTED = False
+        return False
+    DB_CONNECTED = True
+    return True
+
 def process_queue():
     while True:
+        if not check_db_connection():
+            logger.warning("Database connection not available. Retrying in 5 seconds...")
+            sleep(5)
+            continue
+
         queue_size = persistent_queue.memory_queue.qsize()
         logger.info(f"Current queue size: {queue_size}")
         
@@ -211,8 +230,9 @@ def enqueue_conversation(start_response, end_response):
     item = (start_response, end_response)
     persistent_queue.save_to_file(item)
     persistent_queue.memory_queue.put(item)
-    logger.info(f"Enqueued conversation to persistent queue")
-    logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
+    if DB_CONNECTED:
+        logger.info(f"Enqueued conversation to persistent queue")
+        logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
 
 # Start the worker thread
 worker_thread = Thread(target=process_queue, daemon=True)
