@@ -32,7 +32,6 @@ logger = logging.getLogger(__name__)
 
 QUEUE_FILE = "conversation_queue.json"
 file_lock = Lock()
-
 DB_CONNECTED = False
 
 class FileLock:
@@ -75,10 +74,18 @@ class PersistentQueue:
                 with open(self.queue_file, 'r') as f:
                     json.load(f)
             except json.JSONDecodeError:
-                logger.error(f"Corrupted queue file detected. Creating backup and new file.")
-                backup_file = Path(f"{QUEUE_FILE}.bak")
-                self.queue_file.rename(backup_file)
-                self.queue_file.write_text("[]")
+                logger.error(f"Corrupted queue file detected.")
+                self.create_backup_and_new_file()
+
+    def create_backup_and_new_file(self):
+        backup_file = Path(f"{QUEUE_FILE}.bak")
+        if backup_file.exists():
+            logger.warning(f"Backup file {backup_file} already exists. Creating a uniquely named backup file.")
+            timestamp = time.strftime("%Y%m%d-%H%M%S")
+            backup_file = Path(f"{QUEUE_FILE}-{timestamp}.bak")
+        self.queue_file.rename(backup_file)
+        self.queue_file.write_text("[]")
+        logger.info(f"Created backup file: {backup_file}")
 
     def save_to_file(self, item):
         with file_lock:
@@ -162,6 +169,7 @@ class PersistentQueue:
 persistent_queue = PersistentQueue()
 
 def check_db_connection():
+    global DB_CONNECTED
     db_conn = connections['default']
     try:
         db_conn.cursor()
