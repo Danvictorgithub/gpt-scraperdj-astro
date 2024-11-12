@@ -169,6 +169,7 @@ def process_queue():
             retry_delay = 5
             
             process_start_time = time.time()
+            conversation = None
             
             while attempt < max_retries:
                 try:
@@ -216,6 +217,7 @@ def enqueue_conversation(start_response, end_response):
 # Start the worker thread
 worker_thread = Thread(target=process_queue, daemon=True)
 worker_thread.start()
+
 
 class HTTPMethod(Enum):
     GET = "GET"
