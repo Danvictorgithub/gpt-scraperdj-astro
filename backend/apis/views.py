@@ -172,12 +172,12 @@ def check_db_connection():
     global DB_CONNECTED
     db_conn = connections['default']
     try:
-        db_conn.cursor()
+        db_conn.ensure_connection()
+        DB_CONNECTED = True
+        return True
     except OperationalError:
         DB_CONNECTED = False
         return False
-    DB_CONNECTED = True
-    return True
 
 def process_queue():
     while True:
@@ -245,7 +245,6 @@ def enqueue_conversation(start_response, end_response):
 # Start the worker thread
 worker_thread = Thread(target=process_queue, daemon=True)
 worker_thread.start()
-
 
 class HTTPMethod(Enum):
     GET = "GET"
