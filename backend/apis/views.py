@@ -186,14 +186,19 @@ def check_db_connection(max_retries=5, delay=5):
 
 def process_queue():
     while True:
+        queue_size = persistent_queue.memory_queue.qsize()
+        if queue_size == 0:
+            logger.info("Queue is empty. Waiting for items...")
+            sleep(5)
+            continue
+
         if not check_db_connection():
             logger.error("Max retries reached for database connection. Exiting process_queue.")
             break
 
-        queue_size = persistent_queue.memory_queue.qsize()
         logger.info(f"Current queue size: {queue_size}")
         
-        if queue_size > 0:
+        while queue_size > 0:
             start_response, end_response = persistent_queue.memory_queue.get()
             attempt = 0
             max_retries = 3
@@ -234,9 +239,7 @@ def process_queue():
             
             # Rate limiting - wait 1 second between items
             sleep(1)
-        else:
-            # If queue is empty, wait before checking again
-            sleep(5)
+            queue_size = persistent_queue.memory_queue.qsize()
 
 def enqueue_conversation(start_response, end_response):
     item = (start_response, end_response)
