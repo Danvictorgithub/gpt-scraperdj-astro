@@ -168,23 +168,27 @@ class PersistentQueue:
 
 persistent_queue = PersistentQueue()
 
-def check_db_connection():
+def check_db_connection(max_retries=5, delay=5):
     global DB_CONNECTED
     db_conn = connections['default']
-    try:
-        db_conn.ensure_connection()
-        DB_CONNECTED = True
-        return True
-    except OperationalError:
-        DB_CONNECTED = False
-        return False
+    retries = 0
+    while retries < max_retries:
+        try:
+            db_conn.ensure_connection()
+            DB_CONNECTED = True
+            return True
+        except OperationalError:
+            DB_CONNECTED = False
+            retries += 1
+            logger.warning(f"Database connection not available. Retrying in {delay} seconds... (attempt {retries}/{max_retries})")
+            sleep(delay)
+    return False
 
 def process_queue():
     while True:
         if not check_db_connection():
-            logger.warning("Database connection not available. Retrying in 5 seconds...")
-            sleep(5)
-            continue
+            logger.error("Max retries reached for database connection. Exiting process_queue.")
+            break
 
         queue_size = persistent_queue.memory_queue.qsize()
         logger.info(f"Current queue size: {queue_size}")
