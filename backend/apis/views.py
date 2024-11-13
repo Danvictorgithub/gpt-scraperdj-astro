@@ -243,11 +243,16 @@ def process_queue():
 
 def enqueue_conversation(start_response, end_response):
     item = (start_response, end_response)
-    persistent_queue.save_to_file(item)
-    persistent_queue.memory_queue.put(item)
-    if DB_CONNECTED:
-        logger.info(f"Enqueued conversation to persistent queue")
-        logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
+    try:
+        persistent_queue.save_to_file(item)
+        persistent_queue.memory_queue.put(item)
+        if DB_CONNECTED:
+            logger.info(f"Enqueued conversation to persistent queue")
+            logger.info(f"Queue size: {persistent_queue.memory_queue.qsize()}")
+    except Exception as e:
+        logger.error(f"Failed to enqueue conversation: {e}")
+        # Ensure the item is still added to the queue even if an error occurs
+        persistent_queue.memory_queue.put(item)
 
 # Start the worker thread
 worker_thread = Thread(target=process_queue, daemon=True)
